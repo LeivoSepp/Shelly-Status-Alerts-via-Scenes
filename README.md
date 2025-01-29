@@ -1,9 +1,9 @@
-# Shelly Device Status Alerts via Scenes
+# Shelly Device Status Alerts via Scene notifications
 
 This script tracks the online status of remote Shelly devices and triggers Shelly scenes to notify users when devices go offline or come back online.
 
 ## Table of Contents
-- [Shelly Device Status Alerts via Scenes](#shelly-device-status-alerts-via-scenes)
+- [Shelly Device Status Alerts via Scene notifications](#shelly-device-status-alerts-via-scene-notifications)
   - [Table of Contents](#table-of-contents)
   - [Features](#features)
   - [Requirements](#requirements)
