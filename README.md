@@ -49,7 +49,7 @@ This script tracks the online status of remote Shelly devices and triggers Shell
 5. Copy the key and save it in the KVS
 6. Copy the Shelly cloud URL and save it in the KVS
    
-<img src="images/ShellyAPIKey.jpg" alt="API key" width="600">
+<img src="images/ShellyAPIkey.jpg" alt="API key" width="600">
 
 #### How to get the SceneId:
 1. Go to https://control.shelly.cloud/
