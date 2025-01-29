@@ -81,4 +81,4 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 Created by Leivo Sepp, 2025
 
-[GitHub Repository: Shelly Device Status Alerts via Scenes](https://github.com/LeivoSepp/Shelly-Device-Status-Alerts-via-Scenes)
+[GitHub Repository: Shelly Device Status Alerts via Scenes](https://github.com/LeivoSepp/Shelly-Status-Alerts-via-Scenes)
