@@ -1,7 +1,7 @@
 /*
 Created by Leivo Sepp, 2025
 Licensed under the MIT License
-https://github.com/LeivoSepp/Shelly-Device-Status-Alerts-via-Scenes
+https://github.com/LeivoSepp/Shelly-Status-Alerts-via-Scenes
 
 Shelly Device Status Alerts via Scenes
 
