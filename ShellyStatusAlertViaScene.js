@@ -43,36 +43,42 @@ There are two non documented API calls that can be used to manage Shelly scenes.
 - scene/enable?enabled=true&auth_key=apiKey&id=SceneId
 - scene/enable?enabled=false&auth_key=apiKey&id=SceneId
 */
-
-const CONF = {
-    dvsc: [
+/**
         { id: "123456789", name: "Nibe heating" },
         { id: "123456789", name: "Main Pro 3EM" },
         { id: "123456789", name: "Garage Shelly" },
-    ],
+
+ */
+function dvsc() {
+    return [
+        { id: "123456789", name: "Nibe heating" },
+        { id: "123456789", name: "Main Pro 3EM" },
+        { id: "123456789", name: "Garage Shelly" },
+    ]
+}
+let CONF = {
     ping: 600,      //time in seconds before next device check 
     url: '',        //url to the Shelly cloud
     apiK: '',       //API key
     scOf: '',       //scene id for offline
     scOn: '',       //scene id for online
-    sRun: "scene/manual_run",
-    ver: "1.1",
+    sRun: "/scene/manual_run",
+    ver: "1.2",
 };
 
-let noFl = CONF.dvsc.length;    //# of devices after which the scene is triggered
 let dIdx = 0;                   //device index
 let fCnt = 0;                   //failure counter
 let fail = false;               //is failure
 let ok = true;                  //is ok
-
 const sId = Shelly.getCurrentScriptId();
 
+// set auto start
 function strt() {
     if (!Shelly.getComponentConfig("script", sId).enable) {
         Shelly.call('Script.SetConfig', { id: sId, config: { enable: true } });
     }
 }
-
+// get KVS
 function getK() {
     Shelly.call('KVS.Get', { key: "ShellyAlertsViaScene" + sId },
         function (res, err) {
@@ -95,13 +101,62 @@ function getK() {
             CONF.scOn = JSON.parse(res.value).SceneIdOnline;
         });
 }
+// check device status
+function pngD() {
+    Shelly.call(
+        "HTTP.POST", {
+        "url": CONF.url + "/device/status",
+        "content_type": "application/json",
+        "body": JSON.stringify({ id: dvsc()[dIdx].id, auth_key: CONF.apiK }),
+    }, function (res, err, msg) {
+        let nDvc = dvsc().length;   //number of devices
+        let next = new Date(Math.floor(Date.now() + CONF.ping * 1000)).toString();
+        if (err !== 0 || res === null || res.code != 200) {
+            print(dvsc()[dIdx].name, msg, err, ". Next check at " + next);
+            dIdx++;
+            dIdx = dIdx % nDvc;
+            return;
+        }
+        //instead of parsing the JSON, we search for the strings to save memory
+        let body = res.body;
+        let isok = body.indexOf("isok") + 6;
+        let onln = body.indexOf("online") + 8;
+
+        if (!(body.substring(isok, body.indexOf(",", isok)) === "true") || !(body.substring(onln, body.indexOf(",", onln)) === "true")) {
+            fCnt++;
+            print(dvsc()[dIdx].name, "is offline.", "Next check at " + next);
+        } else {
+            fail = false;
+            print(dvsc()[dIdx].name, "is online.", "Next check at " + next);
+        }
+        next = null;
+        print(dIdx === nDvc - 1 ? fCnt + " device(s) out of " + nDvc + " are offline." : "");
+        dIdx++;
+        dIdx = dIdx % nDvc;
+        if (!ok && !fail) {
+            print("Device(s) are back online.");
+            Scen(CONF.scOn);
+            ok = true;
+            fCnt--;
+            return;
+        }
+        if (fCnt >= nDvc && !fail) {
+            print("All devices are offline.");
+            fCnt = 0;
+            fail = true;
+            ok = false;
+            Scen(CONF.scOf);
+            return;
+        }
+        fCnt = dIdx === 0 ? 0 : fCnt;
+    });
+}
 // send scene
 function Scen(id) {
-    const url = CONF.url + CONF.sRun + "?auth_key=" + CONF.apiK + "&id=" + id;
     Shelly.call(
         "HTTP.GET", {
-        "url": url,
-        "content_type": " application/json",
+        "url": CONF.url + CONF.sRun + "?auth_key=" + CONF.apiK + "&id=" + id,
+        "content_type": "application/json",
     }, function (res, err, msg) {
         if (err !== 0 || res === null || res.code != 200) {
             print(err, msg);
@@ -110,55 +165,8 @@ function Scen(id) {
         print(JSON.parse(res.body).isok ? "Scene executed" : "Scene was not executed");
     });
 }
-
-function pngD() {
-    Shelly.call(
-        "HTTP.POST", {
-        "url": CONF.url + "/device/status ",
-        "content_type": " application/json",
-        "body": JSON.stringify({ id: CONF.dvsc[dIdx].id, auth_key: CONF.apiK }),
-    }, function (res, err, msg) {
-        let next = new Date(Math.floor(Date.now() + CONF.ping * 1000)).toString();
-        if (err !== 0 || res === null || res.code != 200) {
-            print(CONF.dvsc[dIdx].name, msg, err, ". Next check at " + next);
-            dIdx++;
-            dIdx = dIdx % noFl;
-            return;
-        }
-        let json = JSON.parse(res.body);
-        res = null;
-
-        if (!json.isok || !json.data.online) {
-            fCnt++;
-            print(CONF.dvsc[dIdx].name, "is offline.", "Next check at " + next);
-        } else {
-            fail = false;
-            print(CONF.dvsc[dIdx].name, "is online.", "Next check at " + next);
-        }
-        json = null;
-        print(dIdx === noFl - 1 ? fCnt + " device(s) out of " + noFl + " are offline." : "");
-
-        if (!ok && !fail) {
-            print("Device(s) are back online.");
-            Scen(CONF.scOn);
-            ok = true;
-            return;
-        }
-        if (fCnt >= noFl && !fail) {
-            print("All devices are offline.");
-            fCnt = 0;
-            fail = true;
-            ok = false;
-            Scen(CONF.scOf);
-            return;
-        }
-        dIdx++;
-        dIdx = dIdx % noFl;
-        fCnt = dIdx === 0 ? 0 : fCnt;
-    });
-}
-
+// start
 strt();
 getK();
-print("Starting Shelly Status Alert via Scenes: next check at " + new Date(Math.floor(Date.now() + CONF.ping * 1000)).toString());
+Timer.set(1000, false, pngD);
 Timer.set(CONF.ping * 1000, true, pngD);
