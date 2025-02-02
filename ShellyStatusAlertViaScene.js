@@ -8,49 +8,35 @@ Shelly Device Status Alerts via Scenes
 This script tracks the online status of remote Shelly devices and 
 triggers Shelly scenes to notify users when devices go offline or come back online.
 
-How to get the API key and URL:
-1. Go to https://control.shelly.cloud/
-2. Click on the Settings tab
-3. Click on the "Authorization cloud key"
-4. Click on the Get key button
-5. Copy the key and save it in the KVS
-6. Copy the Shelly cloud URL and save it in the KVS
-
-How to get the SceneId:
-1. Go to https://control.shelly.cloud/
-2. Click on the Scenes tab
-3. Click on the scene you want to use
-4. Click on the Informaton tab
-5. Copy the Scene ID and save it in the KVS
-6. Repeat the steps for the other scene
-
-How to get the device id:
-1. Go to https://control.shelly.cloud/
-2. Click on the room where the device is located
-3. Click on the device you want to use
-4. Click on the Device Settings tab
-5. Open Device Information
-6. Copy the DeviceId (MAC address) and save it in the script
-7. Repeat the steps for the other devices
-8. Do not use more than 5 devices in the script as it may cause memory issues
-
-Please set the following parameters in the KVS after the initial run of the script:
-Do not share the API key with anyone.
-{
+Please set the following parameters in the KVS after the initial run of the script.
   "url": "https://xxx-xx-xx.shelly.cloud/",
   "apiKey": "your API key",
   "SceneIdOffline": "SceneId",
   "SceneIdOnline": "SceneId",
-  "Version": "1.0"
-}
 
-Please set the devices in the CONF.dvsc array. 
+How to get the API key and URL:
+1. Go to https://control.shelly.cloud/
+2. Click Settings -> "Authorization cloud key" -> Get key.
+3. Copy the API key, Shelly cloud URL and save them in the KVS
+
+How to get the SceneId:
+1. Go to https://control.shelly.cloud/
+2. Click on the Scenes -> open the scene -> Informaton -> copy the Scene ID and save it in the KVS
+3. Repeat the steps for the other scene.
+
+Set the devices in the CONF.dvsc array to monitor. 
 The id is the device id (mac address) and the name is anything you like to call it.
 { id: "1234567890", name: "My garage Pro 3EM" },
 
-The script will check the online status and loop to next device in 30 seconds.
+How to get the device id:
+1. Go to https://control.shelly.cloud/
+2. Click on the room -> device -> Settings -> Device Information
+3. Copy the DeviceId (MAC address) and save it in the script
+4. Repeat the steps for the other devices
+
+The script will check the online status and then loop to next device.
 If all devices are offline, the scene with the id CONF.scOf will be triggered.
-If one devices are back online, the scene with the id CONF.scOn will be triggered.
+If any device is back online, the scene with the id CONF.scOn will be triggered.
 
 There are two non documented API calls that can be used to manage Shelly scenes.
 - scene/manual_run?auth_key=apiKey&id=SceneId
@@ -64,20 +50,20 @@ const CONF = {
         { id: "123456789", name: "Main Pro 3EM" },
         { id: "123456789", name: "Garage Shelly" },
     ],
-    ping: 60,       //time in seconds before next device check 
+    ping: 600,      //time in seconds before next device check 
     url: '',        //url to the Shelly cloud
     apiK: '',       //API key
     scOf: '',       //scene id for offline
     scOn: '',       //scene id for online
     sRun: "scene/manual_run",
-    ver: "1.0",
+    ver: "1.1",
 };
 
-let noFl = CONF.dvsc.length;  //# of devices after which the scene is triggered
-let dIdx = 0;       //device index
-let fCnt = 0;       //failure counter
-let fail = false;   //is failure
-let ok = true;      //is ok
+let noFl = CONF.dvsc.length;    //# of devices after which the scene is triggered
+let dIdx = 0;                   //device index
+let fCnt = 0;                   //failure counter
+let fail = false;               //is failure
+let ok = true;                  //is ok
 
 const sId = Shelly.getCurrentScriptId();
 
@@ -88,19 +74,18 @@ function strt() {
 }
 
 function getK() {
-    Shelly.call('KVS.Get', { key: "Configuration" + sId },
+    Shelly.call('KVS.Get', { key: "ShellyAlertsViaScene" + sId },
         function (res, err) {
             if (err !== 0) {
-                // Failed to get ConfigurationData
                 let val = {
                     url: "url",
-                    apiKey: "your API key",
-                    SceneIdOffline: "scene id",
-                    SceneIdOnline: "scene id",
+                    apiKey: "your_API_key",
+                    SceneIdOffline: "sceneId",
+                    SceneIdOnline: "sceneId",
                     Version: CONF.ver
                 };
-                print("API key andother configuration parameters are not set, please set them in the KVS.");
-                Shelly.call('KVS.Set', { key: "Configuration" + sId, value: JSON.stringify(val) });
+                print("API key and configuration parameters must be set in KVS.");
+                Shelly.call('KVS.Set', { key: "ShellyAlertsViaScene" + sId, value: JSON.stringify(val) });
                 Shelly.call('Script.Stop', { id: sId });
                 return;
             }
@@ -110,15 +95,16 @@ function getK() {
             CONF.scOn = JSON.parse(res.value).SceneIdOnline;
         });
 }
+// send scene
 function Scen(id) {
     const url = CONF.url + CONF.sRun + "?auth_key=" + CONF.apiK + "&id=" + id;
     Shelly.call(
         "HTTP.GET", {
         "url": url,
         "content_type": " application/json",
-    }, function (res, err) {
+    }, function (res, err, msg) {
         if (err !== 0 || res === null || res.code != 200) {
-            print(err);
+            print(err, msg);
             return;
         }
         print(JSON.parse(res.body).isok ? "Scene executed" : "Scene was not executed");
@@ -128,29 +114,29 @@ function Scen(id) {
 function pngD() {
     Shelly.call(
         "HTTP.POST", {
-        "url": CONF.url + "device/status ",
+        "url": CONF.url + "/device/status ",
         "content_type": " application/json",
         "body": JSON.stringify({ id: CONF.dvsc[dIdx].id, auth_key: CONF.apiK }),
-    }, function (res, err) {
+    }, function (res, err, msg) {
+        let next = new Date(Math.floor(Date.now() + CONF.ping * 1000)).toString();
         if (err !== 0 || res === null || res.code != 200) {
-            print(err);
+            print(CONF.dvsc[dIdx].name, msg, err, ". Next check at " + next);
+            dIdx++;
+            dIdx = dIdx % noFl;
             return;
         }
         let json = JSON.parse(res.body);
-        res = null; //free memory
+        res = null;
 
         if (!json.isok || !json.data.online) {
             fCnt++;
-            print(CONF.dvsc[dIdx].name, "is offline.");
+            print(CONF.dvsc[dIdx].name, "is offline.", "Next check at " + next);
         } else {
             fail = false;
-            print(CONF.dvsc[dIdx].name, "is online.");
+            print(CONF.dvsc[dIdx].name, "is online.", "Next check at " + next);
         }
-        json = null; //free memory
-        print(dIdx === CONF.dvsc.length - 1 ? fCnt + " device(s) out of " + noFl + " are offline." : "");
-
-        dIdx++;
-        dIdx = dIdx % CONF.dvsc.length;
+        json = null;
+        print(dIdx === noFl - 1 ? fCnt + " device(s) out of " + noFl + " are offline." : "");
 
         if (!ok && !fail) {
             print("Device(s) are back online.");
@@ -158,7 +144,6 @@ function pngD() {
             ok = true;
             return;
         }
-
         if (fCnt >= noFl && !fail) {
             print("All devices are offline.");
             fCnt = 0;
@@ -167,10 +152,13 @@ function pngD() {
             Scen(CONF.scOf);
             return;
         }
+        dIdx++;
+        dIdx = dIdx % noFl;
         fCnt = dIdx === 0 ? 0 : fCnt;
     });
 }
 
 strt();
 getK();
+print("Starting Shelly Status Alert via Scenes: next check at " + new Date(Math.floor(Date.now() + CONF.ping * 1000)).toString());
 Timer.set(CONF.ping * 1000, true, pngD);
