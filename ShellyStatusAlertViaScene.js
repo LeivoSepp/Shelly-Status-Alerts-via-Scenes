@@ -135,7 +135,7 @@ function pngD() {
         dIdx++;
         dIdx = dIdx % nDvc;
         if (fCnt >= nDvc && !fail) {
-            print(pId, "Scene: All devices are offline at", new Date().toString());
+            print(pId, "Scene: All devices are offline at", frmT(new Date()));
             fCnt = 0;
             fail = true;
             ok = false;
@@ -145,7 +145,7 @@ function pngD() {
             return;
         }
         if (!ok && !fail) {
-            print(pId, "Scene: Device(s) are back online at", new Date().toString());
+            print(pId, "Scene: Device(s) are back online at", frmT(new Date()));
             Scen(CONF.scOn);
             ok = true;
             fCnt--;
