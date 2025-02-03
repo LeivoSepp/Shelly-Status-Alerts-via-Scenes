@@ -1,6 +1,7 @@
 # Shelly Device Status Alerts via Scene notifications
 
-This script tracks the online status of remote Shelly devices and triggers Shelly scenes to notify users when devices go offline or come back online.
+> [!IMPORTANT]
+> This script tracks the online status of remote Shelly devices and triggers Shelly scenes to notify users when devices go offline or come back online.
 
 <img src="images/ShellyStatusAlertsViaScenes.jpg" alt="ShellyStatusAlertsViaScenes" width="500">
 
@@ -43,6 +44,9 @@ This script tracks the online status of remote Shelly devices and triggers Shell
 10. Add devices data inside of the script.
 11. Start the script and in few minutes monitor the logs to cehck if everything works well. 
 
+<img src="images/StoreSettingKvs.jpg" alt="API key" width="600">
+
+
 #### How to get the API key and URL:
 1. Go to https://control.shelly.cloud/
 2. Click on the Settings tab
@@ -83,4 +87,4 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 Created by Leivo Sepp, 2025
 
-[GitHub Repository: Shelly Device Status Alerts via Scenes](https://github.com/LeivoSepp/Shelly-Status-Alerts-via-Scenes)
+[Shelly Device Status Alerts via Scenes - GitHub Repository](https://github.com/LeivoSepp/Shelly-Status-Alerts-via-Scenes)
