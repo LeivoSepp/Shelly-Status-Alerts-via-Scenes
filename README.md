@@ -23,6 +23,9 @@
 - Monitors the online status of Shelly devices.
 - Executes a Shelly Scene to notify the user when all devices go offline.
 - Executes a Shelly Scene to notify the user when any device comes back online.
+- Stores the last three outage timestamps in KVS for history.
+
+<img src="images/OutageHistory.jpg" alt="API key" width="500">
 
 ## Requirements
 - Shelly devices to monitor
