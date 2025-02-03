@@ -44,9 +44,6 @@ There are two non documented API calls that can be used to manage Shelly scenes.
 - scene/enable?enabled=false&auth_key=apiKey&id=SceneId
 */
 /**
-        { id: "123456789", name: "Nibe heating" },
-        { id: "123456789", name: "Main Pro 3EM" },
-        { id: "123456789", name: "Garage Shelly" },
 
  */
 function dvsc() {
@@ -57,20 +54,24 @@ function dvsc() {
     ]
 }
 let CONF = {
-    ping: 600,      //time in seconds before next device check 
+    ping: 60,       //time in seconds before next device check 
     url: '',        //url to the Shelly cloud
     apiK: '',       //API key
     scOf: '',       //scene id for offline
     scOn: '',       //scene id for online
     sRun: "/scene/manual_run",
-    ver: "1.2",
+    ver: "1.3",
 };
 
 let dIdx = 0;                   //device index
 let fCnt = 0;                   //failure counter
 let fail = false;               //is failure
 let ok = true;                  //is ok
+let outT = [];                  //offline times
+let outX = 0;                   //offline index
 const sId = Shelly.getCurrentScriptId();
+pId = "Id" + Shelly.getCurrentScriptId() + ": ";
+
 
 // set auto start
 function strt() {
@@ -90,7 +91,7 @@ function getK() {
                     SceneIdOnline: "sceneId",
                     Version: CONF.ver
                 };
-                print("API key and configuration parameters must be set in KVS.");
+                print(pId, "API key and configuration parameters must be set in KVS.");
                 Shelly.call('KVS.Set', { key: "ShellyAlertsViaScene" + sId, value: JSON.stringify(val) });
                 Shelly.call('Script.Stop', { id: sId });
                 return;
@@ -110,42 +111,48 @@ function pngD() {
         "body": JSON.stringify({ id: dvsc()[dIdx].id, auth_key: CONF.apiK }),
     }, function (res, err, msg) {
         let nDvc = dvsc().length;   //number of devices
-        let next = new Date(Math.floor(Date.now() + CONF.ping * 1000)).toString();
+        let next = frmT(new Date(Math.floor(Date.now() + CONF.ping * 1000)));
         if (err !== 0 || res === null || res.code != 200) {
-            print(dvsc()[dIdx].name, msg, err, ". Next check at " + next);
+            print(pId, "Error of reading this device:", dvsc()[dIdx].name, msg, err, ". Switching to next device at " + next);
             dIdx++;
             dIdx = dIdx % nDvc;
             return;
         }
-        //instead of parsing the JSON, we search for the strings to save memory
+        //instead of parsing the JSON, search for the strings to save memory
         let body = res.body;
         let isok = body.indexOf("isok") + 6;
         let onln = body.indexOf("online") + 8;
 
         if (!(body.substring(isok, body.indexOf(",", isok)) === "true") || !(body.substring(onln, body.indexOf(",", onln)) === "true")) {
             fCnt++;
-            print(dvsc()[dIdx].name, "is offline.", "Next check at " + next);
+            print(pId, dvsc()[dIdx].name, "is offline.", "Switching to next device at " + next);
         } else {
             fail = false;
-            print(dvsc()[dIdx].name, "is online.", "Next check at " + next);
+            print(pId, dvsc()[dIdx].name, "is online.", "Next check at " + next);
         }
         next = null;
-        print(dIdx === nDvc - 1 ? fCnt + " device(s) out of " + nDvc + " are offline." : "");
+        print(dIdx === nDvc - 1 ? pId + (nDvc - fCnt) + " out of " + nDvc + " device(s) are online." : "");
         dIdx++;
         dIdx = dIdx % nDvc;
-        if (!ok && !fail) {
-            print("Device(s) are back online.");
-            Scen(CONF.scOn);
-            ok = true;
-            fCnt--;
-            return;
-        }
         if (fCnt >= nDvc && !fail) {
-            print("All devices are offline.");
+            print(pId, "Scene: All devices are offline at", new Date().toString());
             fCnt = 0;
             fail = true;
             ok = false;
             Scen(CONF.scOf);
+            outT.push({ from: frmT(new Date()) });
+            sKvs(outT);
+            return;
+        }
+        if (!ok && !fail) {
+            print(pId, "Scene: Device(s) are back online at", new Date().toString());
+            Scen(CONF.scOn);
+            ok = true;
+            fCnt--;
+            outT[outX].to = frmT(new Date());
+            sKvs(outT);
+            outX === 2 ? outT.splice(0, 1) : outT;  //remove the first element
+            outX = outX === 2 ? 2 : outX + 1;       //max arr length = 3
             return;
         }
         fCnt = dIdx === 0 ? 0 : fCnt;
@@ -157,13 +164,19 @@ function Scen(id) {
         "HTTP.GET", {
         "url": CONF.url + CONF.sRun + "?auth_key=" + CONF.apiK + "&id=" + id,
         "content_type": "application/json",
-    }, function (res, err, msg) {
-        if (err !== 0 || res === null || res.code != 200) {
-            print(err, msg);
-            return;
-        }
-        print(JSON.parse(res.body).isok ? "Scene executed" : "Scene was not executed");
     });
+}
+// store offline times to KVS
+function sKvs(val) {
+    Shelly.call('KVS.Set', { key: "ShellyOutages" + sId, value: JSON.stringify(val) });
+}
+// format time
+function frmT(date) {
+    return (date.getHours() < 10 ? "0" + date.getHours() : date.getHours()) + ":"
+        + (date.getMinutes() < 10 ? "0" + date.getMinutes() : date.getMinutes()) + " "
+        + date.getDate() + "."
+        + (date.getMonth() + 1) + "."
+        + date.getFullYear();
 }
 // start
 strt();
